@@ -1,6 +1,6 @@
 # SD Card App Data (sd_appdata)
 
-Magisk module for the Redmi Pad SE (HyperOS, Android 14) that moves app data to the external SD card, to reduce writes to the internal eMMC.
+Magisk module that moves app data to the external SD card, to reduce writes to the internal storage.
 
 ## How it works
 
