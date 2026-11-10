@@ -80,13 +80,18 @@ Rebooting before that leaves the app data half restored. If internal storage doe
 ```
 IMAGE_SIZE_MB=16384          # image size, used only when the image is first created
 MODE=list                    # user = all third-party apps, list = only PACKAGES
-PACKAGES="mark.via.gp"       # separate packages with spaces (or newlines)
+PACKAGES=""                  # separate packages with spaces (or newlines)
 EXCLUDE="com.topjohnwu.magisk"
 MOVE_DE=1
 MOVE_ANDROID_DATA=1
+LOGGING=1                    # 1 = write log.txt (max 1 MB), 0 = no log
 ```
 
-Add a second app: `PACKAGES="mark.via.gp com.second.app"` and reboot. Only spaces (or newlines) separate packages; commas don't work. System apps (like the official YouTube) are skipped by `MODE=user`; use `MODE=list` for them. Don't add WebView: it is a shared system component, and each app's WebView data is already inside that app's own data.
+Add an app: set `PACKAGES="com.sample.app"` (or several: `PACKAGES="com.sample.app com.second.app"`) and reboot. Only spaces (or newlines) separate packages; commas don't work. System apps (like the official YouTube) are skipped by `MODE=user`; use `MODE=list` for them. Don't add WebView: it is a shared system component, and each app's WebView data is already inside that app's own data.
+
+Apps listed in `PACKAGES` are mounted from the SD image at every boot, so keep them listed. When `restore.sh` finishes successfully, it resets `MODE=list` and `PACKAGES=""` in `config.txt` and disables the module.
+
+`log.txt` is rewritten at every boot and trimmed to stay under 1 MB. Set `LOGGING=0` to turn it off.
 
 ## Image size and resizing
 
@@ -109,7 +114,7 @@ A new or wiped SD has no image, so the module creates a fresh empty one. Data th
 
 ## What happens on each reboot
 
-Nothing is recopied or reformatted. The module mounts the existing image and binds the folders. An app is copied only the first time, when it has no folder in the image. Apps are force-stopped before being mounted, so one may restart once at boot.
+Nothing is recopied or reformatted. The module mounts the existing image and binds the folders of the apps listed in the config. A newly listed app is copied only the first time, when it has no folder in the image. Apps are stopped before being mounted, so one may restart once at boot.
 
 If the SD is missing at boot, the module does nothing and the apps run with empty data until the SD is back.
 
@@ -118,14 +123,14 @@ If the SD is missing at boot, the module does nothing and the apps run with empt
 ```
 su -c 'cat /data/adb/modules/sd_appdata/log.txt'
 su -c 'df -h /mnt/sdappdata'
-su -c 'grep mark.via.gp /proc/self/mountinfo'
+su -c 'grep com.sample.app /proc/self/mountinfo'
 su -c 'ls /mnt/sdappdata/data'
 ```
 
 - The log should contain `SD:`, `image mounted`, `moved ...` and `done`.
 - `df` should show `/dev/block/loopNN` mounted, with used space growing while the first copy runs.
 - The `grep` should print lines with the loop device and roots like `/data/<pkg>`, `/data_de/<pkg>`, `/android_data/<pkg>`.
-- Harmless log lines: `mke2fs: invalid option -- t` (first formatter fails, the fallback works) and `cmd: Failure calling service activity` (force-stop failed right after boot; reboot once).
+- Harmless log lines: `mke2fs: invalid option -- t` (first formatter fails, the fallback works) and the `sdappdata: recovering journal` / `Clearing orphaned inode` lines (normal journal recovery after a reboot or power loss).
 - If you paste command output back into Termux, you'll get `bash:` errors. Ignore them.
 
 ## Downloads
@@ -141,7 +146,7 @@ Only app data is moved, not shared storage.
 su -c sh /data/adb/modules/sd_appdata/restore.sh
 ```
 
-Copies everything back to internal storage, unprotects and unmounts the image, and disables the module. It does not delete the image. Reboot afterwards. Just removing the module without waiting for the automatic restore leaves the data on the SD and the apps appear empty.
+Copies everything back to internal storage, unprotects and unmounts the image, resets `MODE=list` and `PACKAGES=""` in `config.txt`, and disables the module. It does not delete the image. Reboot afterwards. Just removing the module without waiting for the automatic restore leaves the data on the SD and the apps appear empty. Delete `.0.img` before enabling the module again, otherwise the old copy in the image is mounted over the current data.
 
 ## Speed and fragmentation
 
@@ -177,6 +182,14 @@ Nothing in the kernel or system partition is modified.
 - `log.txt` last boot log
 
 ## Version history
+
+### v1.3
+- The config reset now happens when `restore.sh` finishes successfully (`MODE=list`, `PACKAGES=""`), not after the move. Listed apps stay listed and are mounted from `.0.img` at every boot.
+
+### v1.2
+- New `LOGGING` option in `config.txt` (1 = on, 0 = off). `log.txt` is kept under 1 MB.
+- Fixed the `cmd: Failure calling service activity` error: the module no longer depends on `am force-stop` and stops the app's processes directly when needed.
+- This build reset the config right after the move and mounted every app in the image whether listed or not. Replaced in v1.3.
 
 ### v1.1
 - `.0.img` is protected from deletion while the module is active (bind-mounted onto itself).
