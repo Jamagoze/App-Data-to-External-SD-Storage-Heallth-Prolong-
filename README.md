@@ -182,7 +182,6 @@ Nothing in the kernel or system partition is modified.
 - `.0.img` is protected from deletion while the module is active (bind-mounted onto itself).
 - Removing the module in Magisk now restores all app data to internal storage automatically, then deletes `.0.img`. It checks free internal space first and cancels the removal if the data won't fit or a copy fails.
 - `restore.sh` shares the same restore code: it checks free space, restores SELinux labels, unprotects the image, and disables the module only after a successful restore.
-- Default `config.txt` uses `MODE=list` with `PACKAGES="mark.via.gp"`.
 - An intermediate build also labelled v1.1 (clean install: no copy, no restore) was dropped. This version replaces it.
 
 ### v1.0
